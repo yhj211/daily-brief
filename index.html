@@ -64,6 +64,11 @@
   .tagrow{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;}
   .tag{font-size:11px;color:var(--blue-d);background:var(--tag);padding:2px 7px;border-radius:5px;}
   .tag.hot{background:#fff3e0;color:#e65100;}
+  .card .zh{font-size:13.5px;color:#0d5a9e;background:#eef6ff;border:1px solid #dcebfa;
+    border-radius:8px;padding:7px 10px;margin:2px 0 8px;line-height:1.55;}
+  .card .zh:empty{display:none;padding:0;border:none;}
+  body.no-zh .card .zh{display:none;}
+  .zh-pending{font-size:11.5px;color:#9bb4cc;}
 
   .status{text-align:center;color:var(--sub);font-size:14px;padding:40px 20px;}
   .skel .card{display:block;}
@@ -92,6 +97,7 @@
     <div class="top-row">
       <h1>📰 每日简报</h1>
       <div class="btns">
+        <button class="icon-btn" id="zhBtn">中/EN</button>
         <button class="icon-btn" id="settingBtn">⚙ 设置</button>
         <button class="icon-btn" id="refreshBtn"><span class="ic">↻</span> 刷新</button>
       </div>
@@ -135,8 +141,50 @@ const QUERIES = [
   {dflt:'dc',       q:'"data center" OR datacenter OR hyperscale when:3d'},
 ];
 const CACHE_KEY='daily_brief_cache_v2', KEY_NAME='rss2json_key';
+const ZH_KEY='zh_translate_v1', SHOW_ZH='show_zh';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const escRe=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const escHtml=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ============ 中文摘要（标题翻译，带缓存与限流） ============ */
+let zhCache={};
+try{zhCache=JSON.parse(localStorage.getItem(ZH_KEY)||'{}')||{};}catch(e){zhCache={};}
+const inflight={};
+function saveZh(){localStorage.setItem(ZH_KEY,JSON.stringify(zhCache));}
+function zhTranslate(text){
+  if(zhCache[text])return Promise.resolve(zhCache[text]);
+  if(inflight[text])return inflight[text];
+  inflight[text]=(async()=>{
+    for(let i=0;i<3;i++){
+      try{
+        const u='https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair=en|zh-CN';
+        const d=await (await fetch(u)).json();
+        let tr=d&&d.responseData&&d.responseData.translatedText;
+        if(tr&&d.responseStatus===200){tr=tr.replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim();
+          if(tr){zhCache[text]=tr;saveZh();return tr;}}
+      }catch(e){await sleep(700*(i+1));}
+    }
+    return '';
+  })();
+  return inflight[text];
+}
+let showZh=localStorage.getItem(SHOW_ZH)!=='0';
+async function fillZh(){
+  if(!showZh)return;
+  const nodes=[...document.querySelectorAll('.zh')];
+  const keys=[...new Set(nodes.map(n=>n.dataset.key).filter(k=>k))];
+  let idx=0;
+  const put=(key,tr)=>nodes.forEach(n=>{if(n.dataset.key===key){n.textContent=tr;}});
+  async function worker(){
+    while(idx<keys.length){
+      const key=keys[idx++];
+      if(zhCache[key]){put(key,zhCache[key]);continue;}
+      const tr=await zhTranslate(key);
+      if(tr)put(key,tr);
+    }
+  }
+  await Promise.all([worker(),worker(),worker()]);   // 3 并发，兼顾速度与限流
+}
 
 /* ============ 关键词标签 ============ */
 const TAG_KW={
@@ -253,13 +301,16 @@ function render(){
     const isMy=it.tags.includes('马来西亚');
     const tags=it.tags.map(t=>`<span class="tag ${t==='马来西亚'?'hot':''}">${t}</span>`).join('');
     const thumb=it.thumb?`<img class="thumb" src="${it.thumb}" loading="lazy" alt="">`:'';
+    const zh=zhCache[it.title]?escHtml(zhCache[it.title]):'';
     return `<a class="card ${isMy?'my':''}" href="${it.link}" target="_blank" rel="noopener">
       <div class="body">
         <div class="tagrow">${tags}</div>
         <h3>${it.title}</h3>
+        <div class="zh" data-key="${escHtml(it.title)}">${zh}</div>
         <div class="meta"><span class="src">${it.source}</span><span>·</span><span>${it.date?timeAgo(it.date):'时间未知'}</span></div>
       </div>${thumb}</a>`;
   }).join('');
+  fillZh();
 }
 function renderSkeleton(){
   document.getElementById('feed').innerHTML='<div class="skel">'+
@@ -305,6 +356,16 @@ document.getElementById('tabs').addEventListener('click',e=>{
   b.classList.add('active');current=b.dataset.k;render();
 });
 document.getElementById('refreshBtn').addEventListener('click',()=>load(false));
+
+/* ============ 中/英摘要开关 ============ */
+function applyZh(){document.body.classList.toggle('no-zh',!showZh);}
+document.getElementById('zhBtn').addEventListener('click',()=>{
+  showZh=!showZh;
+  localStorage.setItem(SHOW_ZH,showZh?'1':'0');
+  applyZh();
+  if(showZh)fillZh();
+});
+applyZh();
 
 /* ============ 设置弹窗 ============ */
 const mask=document.getElementById('modalMask');

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>每日简报</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="每日简报">
+<meta name="theme-color" content="#1976d2">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-180.png">
+<style>
+  :root{
+    --blue:#1976d2; --blue-d:#0d47a1; --blue-l:#42a5f5; --bg:#f2f6fb;
+    --card:#fff; --line:#e6eef8; --ink:#1c2b3a; --sub:#7a8ca0; --tag:#e8f2fe;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.5;}
+  .app{max-width:600px;margin:0 auto;min-height:100vh;background:var(--bg);
+    padding-bottom:env(safe-area-inset-bottom);}
+
+  header.top{position:sticky;top:0;z-index:30;background:linear-gradient(135deg,#1976d2,#42a5f5);
+    color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 16px 10px;box-shadow:0 2px 10px rgba(25,118,210,.25);}
+  .top-row{display:flex;align-items:center;justify-content:space-between;}
+  .top-row h1{margin:0;font-size:19px;letter-spacing:.5px;}
+  .btns{display:flex;gap:8px;}
+  .icon-btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;
+    border-radius:999px;padding:6px 12px;font-size:13px;display:flex;align-items:center;gap:5px;}
+  .icon-btn:active{background:rgba(255,255,255,.35);}
+  .icon-btn.spin .ic{animation:rot 1s linear infinite;}
+  @keyframes rot{to{transform:rotate(360deg);}}
+  .upd{font-size:12px;opacity:.9;margin-top:5px;}
+
+  nav.tabs{position:sticky;top:calc(env(safe-area-inset-top) + 52px);z-index:20;display:flex;
+    overflow-x:auto;background:#fff;border-bottom:1px solid var(--line);
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  nav.tabs::-webkit-scrollbar{display:none;}
+  nav.tabs button{flex:0 0 auto;border:none;background:none;padding:12px 15px;font-size:15px;
+    color:var(--sub);position:relative;white-space:nowrap;}
+  nav.tabs button.active{color:var(--blue);font-weight:700;}
+  nav.tabs button.active::after{content:"";position:absolute;left:50%;transform:translateX(-50%);
+    bottom:4px;width:22px;height:3px;border-radius:2px;background:var(--blue);}
+
+  .pull{text-align:center;font-size:13px;color:var(--sub);height:0;overflow:hidden;transition:height .2s;}
+  .pull.show{height:34px;line-height:34px;}
+
+  main{padding:10px 12px 20px;}
+  .card{display:flex;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:12px;margin-bottom:10px;text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(16,80,150,.05);}
+  .card:active{background:#f7fafd;}
+  .card.my{border-left:3px solid #ff9800;}
+  .card .body{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .card h3{margin:0 0 7px;font-size:16px;line-height:1.42;display:-webkit-box;
+    -webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .card .thumb{flex:0 0 96px;width:96px;height:72px;border-radius:9px;object-fit:cover;background:#e9f0f8;}
+  .meta{margin-top:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);flex-wrap:wrap;}
+  .meta .src{color:var(--blue-d);font-weight:600;}
+  .tagrow{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;}
+  .tag{font-size:11px;color:var(--blue-d);background:var(--tag);padding:2px 7px;border-radius:5px;}
+  .tag.hot{background:#fff3e0;color:#e65100;}
+
+  .status{text-align:center;color:var(--sub);font-size:14px;padding:40px 20px;}
+  .skel .card{display:block;}
+  .skel .bar{height:15px;border-radius:6px;background:linear-gradient(90deg,#e9f0f8 25%,#f4f8fd 37%,#e9f0f8 63%);
+    background-size:400% 100%;animation:sh 1.3s infinite;margin-bottom:9px;}
+  @keyframes sh{0%{background-position:100% 0;}100%{background-position:0 0;}}
+  .offline-banner{background:#fff8e1;color:#8d6e00;font-size:12.5px;padding:7px 14px;text-align:center;}
+
+  /* 设置弹窗 */
+  .modal-mask{position:fixed;inset:0;background:rgba(15,35,55,.45);z-index:60;display:none;align-items:flex-end;justify-content:center;}
+  .modal-mask.show{display:flex;}
+  .modal{background:#fff;width:100%;max-width:600px;border-radius:16px 16px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom) + 18px);}
+  .modal h3{margin:0 0 6px;font-size:17px;}
+  .modal p{font-size:13px;color:var(--sub);margin:6px 0 12px;line-height:1.6;}
+  .modal input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:14px;}
+  .modal .mbtns{display:flex;gap:10px;margin-top:14px;}
+  .modal button{flex:1;border:none;border-radius:10px;padding:11px;font-size:15px;}
+  .modal .save{background:var(--blue);color:#fff;}
+  .modal .cancel{background:#eef2f7;color:var(--ink);}
+  footer.note{font-size:11.5px;color:var(--sub);text-align:center;padding:14px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="top-row">
+      <h1>📰 每日简报</h1>
+      <div class="btns">
+        <button class="icon-btn" id="settingBtn">⚙ 设置</button>
+        <button class="icon-btn" id="refreshBtn"><span class="ic">↻</span> 刷新</button>
+      </div>
+    </div>
+    <div class="upd" id="updText">正在加载…</div>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="pull" id="pullTip">下拉刷新…</div>
+  <div class="offline-banner" id="offlineBanner" style="display:none">当前无网络，显示的是上次缓存内容</div>
+  <main id="feed"></main>
+  <footer class="note">数据来自 Google News 公开聚合，经分类去重后展示，点击卡片查看原文。<br>添加到主屏幕后可像 App 一样全屏使用。</footer>
+</div>
+
+<!-- 设置弹窗 -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3>稳定性设置（可选）</h3>
+    <p>免费无 key 时偶尔会因服务限流刷新失败。可到 rss2json.com 用邮箱免费注册，在 “My Account → API Key” 复制 key 粘贴到这里，能显著提升稳定性；不填也能正常使用。</p>
+    <input id="keyInput" type="text" placeholder="粘贴 rss2json API Key（可选）" autocomplete="off">
+    <div class="mbtns">
+      <button class="cancel" id="modalCancel">取消</button>
+      <button class="save" id="modalSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 频道与查询（精简到 4 个请求，规避免费层限流） ============ */
+const CHANNELS = [
+  {key:'foryou', label:'推荐'},
+  {key:'ai', label:'AI'},
+  {key:'finance', label:'金融'},
+  {key:'security', label:'安全'},
+  {key:'dc', label:'数据中心'},
+  {key:'gov', label:'政府'},
+];
+const QUERIES = [
+  {dflt:'ai',       q:'artificial intelligence when:2d'},
+  {dflt:'finance',  q:'Malaysia when:2d'},
+  {dflt:'security', q:'ransomware OR cyberattack OR "data breach" when:3d'},
+  {dflt:'dc',       q:'"data center" OR datacenter OR hyperscale when:3d'},
+];
+const CACHE_KEY='daily_brief_cache_v2', KEY_NAME='rss2json_key';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const escRe=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+
+/* ============ 关键词标签 ============ */
+const TAG_KW={
+  '马来西亚':['malaysia','ringgit','kuala lumpur','johor','selangor','penang','bnm','bursa','sukuk','khazanah'],
+  '金融':['bank','finance','opr','interest rate','monetary','sukuk','ringgit','fiscal','insurance','loan'],
+  '勒索/安全':['ransom','cyber','malware','breach','hacker','phishing','botnet','vulnerability'],
+  '数据中心':['data center','datacenter','hyperscale','colocation','server farm'],
+  '政府投资':['government','sovereign','ministry','infrastructure','subsidy','public investment','state-owned'],
+  'AI':['artificial intelligence','ai','llm','openai','anthropic','nvidia','machine learning','gpu','generative'],
+};
+function tagsOf(text){
+  const t=text.toLowerCase();const out=[];
+  for(const [tag,words] of Object.entries(TAG_KW)){
+    const hit=words.some(w=>{const p=w.includes(' ')?escRe(w):'\\b'+escRe(w)+'\\b';return new RegExp(p).test(t);});
+    if(hit)out.push(tag);
+  }
+  return out;
+}
+
+/* ============ 智能板块分配：一条新闻可同时归属多个板块，至少包含默认板块 ============ */
+const SEC_WORDS=['ransomware','ransom','cyberattack','cyber attack','malware','data breach','data leak','hacker','extortion','phishing','botnet','vulnerability'];
+const DC_WORDS=['data center','datacenter','data centre','hyperscale','hyperscaler','colocation','server farm','data hall'];
+const GOV_WORDS=['government','govt','state-owned','sovereign','ministry','minister','federal','public fund','public investment','infrastructure','subsidy','khazanah','glc'];
+const FIN_WORDS=['bank','finance','opr','interest rate','monetary','sukuk','ringgit','fiscal','insurance','loan','bursa','inflation','bond','takaful'];
+const AI_WORDS=['artificial intelligence','ai','llm','openai','anthropic','deepmind','nvidia','machine learning','gpu','generative'];
+function multiSections(title,dflt){
+  const t=title.toLowerCase();
+  const has=words=>words.some(w=>{const p=w.includes(' ')?escRe(w):'\\b'+escRe(w)+'\\b';return new RegExp(p).test(t);});
+  const s=[dflt];
+  const add=k=>{if(!s.includes(k))s.push(k);};
+  if(has(SEC_WORDS))add('security');
+  if(has(DC_WORDS))add('dc');
+  if(has(GOV_WORDS))add('gov');
+  if(has(FIN_WORDS))add('finance');
+  if(has(AI_WORDS))add('ai');
+  return s;
+}
+
+/* ============ 抓取 ============ */
+function gnewsUrl(q){
+  return 'https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=en-MY&gl=MY&ceid=MY:en';
+}
+function viaRss2Json(gurl){
+  let api='https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(gurl);
+  const key=localStorage.getItem(KEY_NAME);
+  if(key)api+='&api_key='+encodeURIComponent(key.trim());
+  return fetch(api).then(r=>r.json()).then(d=>{
+    if(d.status!=='ok'||!d.items)throw new Error('rss2json '+d.status);
+    return d.items.map(x=>({title:x.title,link:x.link,pub:x.pubDate,thumb:x.thumbnail||'',desc:x.description||''}));
+  });
+}
+function parseRssXml(text){
+  const doc=new DOMParser().parseFromString(text,'text/xml');
+  return [...doc.querySelectorAll('item')].map(el=>{
+    const get=n=>{const e=el.querySelector(n);return e?e.textContent:'';};
+    const img=el.querySelector('media\\:content');
+    return {title:get('title'),link:get('link'),pub:get('pubDate'),thumb:(img&&img.getAttribute('url'))||'',desc:get('description')};
+  });
+}
+function viaAllOrigins(gurl){
+  return fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(gurl))
+    .then(r=>r.text()).then(t=>{if(!t.includes('<item>'))throw new Error('empty');return parseRssXml(t);});
+}
+async function fetchQuery(def){
+  const gurl=gnewsUrl(def.q);
+  for(let i=0;i<3;i++){           // rss2json：指数退避重试
+    try{return (await viaRss2Json(gurl)).map(x=>normalize(x,def.dflt));}
+    catch(e){await sleep(1200*Math.pow(1.6,i));}
+  }
+  try{return (await viaAllOrigins(gurl)).map(x=>normalize(x,def.dflt));}catch(e){return [];}
+}
+
+/* ============ 归一化 / 去重 ============ */
+function sourceOf(title,fb){const i=title.lastIndexOf(' - ');return i>=0?title.slice(i+3):(fb||'Google News');}
+function cleanTitle(title){const i=title.lastIndexOf(' - ');return i>=0?title.slice(0,i):title;}
+function normTitle(t){return t.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+function jaccard(a,b){const A=new Set(a.split()),B=new Set(b.split());
+  if(!A.size||!B.size)return 0;let c=0;for(const x of A)if(B.has(x))c++;return c/(A.size+B.size-c);}
+function normalize(x,dflt){
+  const title=cleanTitle(x.title);
+  const date=x.pub?new Date(x.pub):null;
+  return {id:x.link,title,link:x.link,date:date?date.getTime():0,
+    source:sourceOf(x.title),thumb:x.thumb,sections:multiSections(title,dflt),
+    tags:tagsOf(title+' '+(x.desc||''))};
+}
+function mergeDedupe(all){
+  const kept=[],titles=[];
+  for(const it of all.sort((a,b)=>b.date-a.date)){
+    const nt=normTitle(it.title);
+    const idx=kept.findIndex((k,i)=>jaccard(nt,titles[i])>=0.62);
+    if(idx>=0){for(const s of it.sections)if(!kept[idx].sections.includes(s))kept[idx].sections.push(s);continue;}
+    kept.push(it);titles.push(nt);
+  }
+  return kept;
+}
+
+/* ============ 渲染 ============ */
+let current='foryou',DATA=[];
+function timeAgo(ts){
+  const s=(Date.now()-ts)/1000;
+  if(s<60)return '刚刚';const m=Math.floor(s/60);if(m<60)return m+'分钟前';
+  const h=Math.floor(m/60);if(h<24)return h+'小时前';return Math.floor(h/24)+'天前';
+}
+function visibleItems(){
+  let list=current==='foryou'?DATA.slice():DATA.filter(x=>x.sections.includes(current));
+  if(current==='foryou')list.sort((a,b)=>(b.tags.includes('马来西亚')?1:0)-(a.tags.includes('马来西亚')?1:0)||b.date-a.date);
+  return list;
+}
+function render(){
+  const feed=document.getElementById('feed');
+  const list=visibleItems();
+  if(!list.length){feed.innerHTML='<div class="status">本频道暂无内容，下拉或点击右上角刷新试试</div>';return;}
+  feed.innerHTML=list.map(it=>{
+    const isMy=it.tags.includes('马来西亚');
+    const tags=it.tags.map(t=>`<span class="tag ${t==='马来西亚'?'hot':''}">${t}</span>`).join('');
+    const thumb=it.thumb?`<img class="thumb" src="${it.thumb}" loading="lazy" alt="">`:'';
+    return `<a class="card ${isMy?'my':''}" href="${it.link}" target="_blank" rel="noopener">
+      <div class="body">
+        <div class="tagrow">${tags}</div>
+        <h3>${it.title}</h3>
+        <div class="meta"><span class="src">${it.source}</span><span>·</span><span>${it.date?timeAgo(it.date):'时间未知'}</span></div>
+      </div>${thumb}</a>`;
+  }).join('');
+}
+function renderSkeleton(){
+  document.getElementById('feed').innerHTML='<div class="skel">'+
+    Array(5).fill('<div class="card"><div class="bar" style="width:90%"></div><div class="bar" style="width:70%"></div><div class="bar" style="width:40%"></div></div>').join('')+'</div>';
+}
+
+/* ============ 主加载 ============ */
+async function load(showSkel){
+  const btn=document.getElementById('refreshBtn');btn.classList.add('spin');
+  if(showSkel)renderSkeleton();
+  const collected=[];
+  for(const def of QUERIES){
+    collected.push(...await fetchQuery(def));
+    await sleep(800);
+  }
+  if(collected.length){
+    const fresh=mergeDedupe(collected);
+    // 与缓存合并，保留本次没覆盖到的板块旧数据（去重）
+    const old=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+    DATA=old&&old.items?mergeDedupe(fresh.concat(old.items)):fresh;
+    localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),items:DATA}));
+    document.getElementById('updText').textContent='更新于 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})+' · 共 '+DATA.length+' 条';
+  }else{
+    document.getElementById('updText').textContent='本次刷新失败，显示缓存';
+  }
+  document.getElementById('offlineBanner').style.display=navigator.onLine?'none':'block';
+  btn.classList.remove('spin');render();
+}
+function showCache(){
+  const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+  if(c&&c.items){DATA=c.items;
+    document.getElementById('updText').textContent='上次更新 '+new Date(c.ts).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' · 共 '+DATA.length+' 条';
+    render();return true;}
+  return false;
+}
+
+/* ============ 频道 Tab ============ */
+document.getElementById('tabs').innerHTML=CHANNELS.map((c,i)=>
+  `<button data-k="${c.key}" class="${i===0?'active':''}">${c.label}</button>`).join('');
+document.getElementById('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');current=b.dataset.k;render();
+});
+document.getElementById('refreshBtn').addEventListener('click',()=>load(false));
+
+/* ============ 设置弹窗 ============ */
+const mask=document.getElementById('modalMask');
+document.getElementById('settingBtn').addEventListener('click',()=>{
+  document.getElementById('keyInput').value=localStorage.getItem(KEY_NAME)||'';mask.classList.add('show');});
+document.getElementById('modalCancel').addEventListener('click',()=>mask.classList.remove('show'));
+document.getElementById('modalSave').addEventListener('click',()=>{
+  const v=document.getElementById('keyInput').value.trim();
+  if(v)localStorage.setItem(KEY_NAME,v);else localStorage.removeItem(KEY_NAME);
+  mask.classList.remove('show');load(false);});
+mask.addEventListener('click',e=>{if(e.target===mask)mask.classList.remove('show');});
+
+/* ============ 下拉刷新 ============ */
+let startY=0,pulling=false;
+window.addEventListener('touchstart',e=>{if(window.scrollY===0){startY=e.touches[0].clientY;pulling=true;}});
+window.addEventListener('touchmove',e=>{if(!pulling)return;
+  document.getElementById('pullTip').classList.toggle('show',e.touches[0].clientY-startY>60);});
+window.addEventListener('touchend',()=>{
+  if(document.getElementById('pullTip').classList.contains('show'))load(false);
+  document.getElementById('pullTip').classList.remove('show');pulling=false;});
+
+/* ============ 启动 ============ */
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+window.addEventListener('offline',()=>document.getElementById('offlineBanner').style.display='block');
+window.addEventListener('online',()=>document.getElementById('offlineBanner').style.display='none');
+if(!showCache())renderSkeleton();
+load(false);
+</script>
+</body>
+</html>

@@ -146,44 +146,42 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const escRe=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 const escHtml=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-/* ============ 中文摘要（标题翻译，带缓存与限流） ============ */
+/* ============ 中文摘要：全局单例串行队列，温和限速、失败不重复 ============ */
+let showZh=localStorage.getItem(SHOW_ZH)!=='0';
 let zhCache={};
 try{zhCache=JSON.parse(localStorage.getItem(ZH_KEY)||'{}')||{};}catch(e){zhCache={};}
-const inflight={};
+const zhQueued=new Set(), zhDone=new Set();
+let zhBusy=false;
 function saveZh(){localStorage.setItem(ZH_KEY,JSON.stringify(zhCache));}
-function zhTranslate(text){
-  if(zhCache[text])return Promise.resolve(zhCache[text]);
-  if(inflight[text])return inflight[text];
-  inflight[text]=(async()=>{
-    for(let i=0;i<3;i++){
-      try{
-        const u='https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair=en|zh-CN';
-        const d=await (await fetch(u)).json();
-        let tr=d&&d.responseData&&d.responseData.translatedText;
-        if(tr&&d.responseStatus===200){tr=tr.replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim();
-          if(tr){zhCache[text]=tr;saveZh();return tr;}}
-      }catch(e){await sleep(700*(i+1));}
-    }
-    return '';
-  })();
-  return inflight[text];
+function updateZhDom(key,tr){
+  document.querySelectorAll('.zh').forEach(n=>{if(n.dataset.key===key)n.textContent=tr;});
 }
-let showZh=localStorage.getItem(SHOW_ZH)!=='0';
-async function fillZh(){
+function scheduleZh(){
   if(!showZh)return;
-  const nodes=[...document.querySelectorAll('.zh')];
-  const keys=[...new Set(nodes.map(n=>n.dataset.key).filter(k=>k))];
-  let idx=0;
-  const put=(key,tr)=>nodes.forEach(n=>{if(n.dataset.key===key){n.textContent=tr;}});
-  async function worker(){
-    while(idx<keys.length){
-      const key=keys[idx++];
-      if(zhCache[key]){put(key,zhCache[key]);continue;}
-      const tr=await zhTranslate(key);
-      if(tr)put(key,tr);
+  DATA.forEach(it=>{if(!zhCache[it.title]&&!zhDone.has(it.title))zhQueued.add(it.title);});
+  if(!zhBusy)processQueue();
+}
+async function processQueue(){
+  zhBusy=true;
+  while(zhQueued.size){
+    const key=zhQueued.values().next().value;
+    zhQueued.delete(key);
+    if(zhCache[key]||zhDone.has(key))continue;
+    let got='';
+    for(let i=0;i<3&&!got;i++){
+      try{
+        const u='https://api.mymemory.translated.net/get?q='+encodeURIComponent(key)+'&langpair=en|zh-CN';
+        const d=await (await fetch(u)).json();
+        if(d.responseStatus===200&&d.responseData&&d.responseData.translatedText)
+          got=d.responseData.translatedText.replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim();
+      }catch(e){got='';}
+      if(!got)await sleep(i===0?4000:6000);     // 限流/失败长退避，避免风暴
     }
+    if(got){zhCache[key]=got;saveZh();updateZhDom(key,got);}
+    zhDone.add(key);                            // 成功或放弃，本次会话不再重试
+    await sleep(1500);                          // 标题间固定间隔，温和限速
   }
-  await Promise.all([worker(),worker(),worker()]);   // 3 并发，兼顾速度与限流
+  zhBusy=false;
 }
 
 /* ============ 关键词标签 ============ */
@@ -310,7 +308,7 @@ function render(){
         <div class="meta"><span class="src">${it.source}</span><span>·</span><span>${it.date?timeAgo(it.date):'时间未知'}</span></div>
       </div>${thumb}</a>`;
   }).join('');
-  fillZh();
+  scheduleZh();
 }
 function renderSkeleton(){
   document.getElementById('feed').innerHTML='<div class="skel">'+
@@ -363,7 +361,7 @@ document.getElementById('zhBtn').addEventListener('click',()=>{
   showZh=!showZh;
   localStorage.setItem(SHOW_ZH,showZh?'1':'0');
   applyZh();
-  if(showZh)fillZh();
+  if(showZh)scheduleZh();
 });
 applyZh();
 

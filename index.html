@@ -125,11 +125,12 @@
 </div>
 
 <script>
-/* ============ 频道与查询（精简到 4 个请求，规避免费层限流） ============ */
+/* ============ 频道与查询（5 个请求，含 Maybank/CIMB 专属；带重试与兜底规避免费层限流） ============ */
 const CHANNELS = [
   {key:'foryou', label:'推荐'},
   {key:'ai', label:'AI'},
   {key:'finance', label:'金融'},
+  {key:'banks', label:'两大行'},
   {key:'security', label:'安全'},
   {key:'dc', label:'数据中心'},
   {key:'gov', label:'政府'},
@@ -139,6 +140,7 @@ const QUERIES = [
   {dflt:'finance',  q:'Malaysia when:2d'},
   {dflt:'security', q:'ransomware OR cyberattack OR "data breach" when:3d'},
   {dflt:'dc',       q:'"data center" OR datacenter OR hyperscale when:3d'},
+  {dflt:'banks',    q:'Maybank OR CIMB when:3d'},
 ];
 const CACHE_KEY='daily_brief_cache_v2', KEY_NAME='rss2json_key';
 const ZH_KEY='zh_translate_v1', SHOW_ZH='show_zh';
@@ -191,6 +193,7 @@ const TAG_KW={
   '勒索/安全':['ransom','cyber','malware','breach','hacker','phishing','botnet','vulnerability'],
   '数据中心':['data center','datacenter','hyperscale','colocation','server farm'],
   '政府投资':['government','sovereign','ministry','infrastructure','subsidy','public investment','state-owned'],
+  '两大行':['maybank','cimb','malayan banking'],
   'AI':['artificial intelligence','ai','llm','openai','anthropic','nvidia','machine learning','gpu','generative'],
 };
 function tagsOf(text){
@@ -208,6 +211,7 @@ const DC_WORDS=['data center','datacenter','data centre','hyperscale','hyperscal
 const GOV_WORDS=['government','govt','state-owned','sovereign','ministry','minister','federal','public fund','public investment','infrastructure','subsidy','khazanah','glc'];
 const FIN_WORDS=['bank','finance','opr','interest rate','monetary','sukuk','ringgit','fiscal','insurance','loan','bursa','inflation','bond','takaful'];
 const AI_WORDS=['artificial intelligence','ai','llm','openai','anthropic','deepmind','nvidia','machine learning','gpu','generative'];
+const BANK_WORDS=['maybank','cimb','malayan banking'];
 function multiSections(title,dflt){
   const t=title.toLowerCase();
   const has=words=>words.some(w=>{const p=w.includes(' ')?escRe(w):'\\b'+escRe(w)+'\\b';return new RegExp(p).test(t);});
@@ -218,6 +222,7 @@ function multiSections(title,dflt){
   if(has(GOV_WORDS))add('gov');
   if(has(FIN_WORDS))add('finance');
   if(has(AI_WORDS))add('ai');
+  if(has(BANK_WORDS))add('banks');
   return s;
 }
 

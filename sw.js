@@ -1,5 +1,5 @@
 /* Service Worker：离线缓存应用外壳；新闻数据由页面 localStorage 缓存 */
-const CACHE = 'brief-shell-v5';
+const CACHE = 'brief-shell-v6';
 const SHELL = ['./index.html', './manifest.json', 'icons/icon-180.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {

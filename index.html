@@ -218,6 +218,8 @@ const BANK_WORDS=['maybank','cimb','malayan banking'];
 // 华为金融：主体词 + 金融正面词；消费电子排除词（耳机/手机/充电宝等，防止污染华为金融频道）
 const HUAWEI_WORDS=['huawei','华为'];
 const HUAWEI_FIN_WORDS=['digital finance','banking','bank','banco','banca','banque','banc','financial','financial institution','financial services','fintech','insurer','insurance','takaful','payment','core banking','digital bank','strategic partnership','strategic cooperation','金融','银行','保险'];
+// 强业务信号：低歧义词，命中才允许进华为金融；单独 bank/financial 为弱信号（central bank、financial markets 会误命中）
+const HUAWEI_STRONG_WORDS=['digital finance','banking','banco','banca','banque','banc','financial institution','financial services','fintech','insurer','insurance','takaful','payment','core banking','digital bank','strategic partnership','strategic cooperation'];
 const CONSUMER_WORDS=['earbuds','freebuds','earphone','headphone','power bank','mate','tri-fold','foldable','smartphone','cell phone','tablet','smartwatch','手机','耳机','充电宝','平板','手表'];
 function multiSections(title,dflt){
   const t=title.toLowerCase();
@@ -230,8 +232,8 @@ function multiSections(title,dflt){
   if(has(FIN_WORDS))add('finance');
   if(has(AI_WORDS))add('ai');
   if(has(BANK_WORDS))add('banks');
-  // 华为金融：须同时命中主体词与金融正面词，且排除消费电子
-  const isHuaweiFin=has(HUAWEI_WORDS)&&has(HUAWEI_FIN_WORDS)&&!has(CONSUMER_WORDS);
+  // 华为金融：须同时命中主体词、金融词与强业务信号，且排除消费电子
+  const isHuaweiFin=has(HUAWEI_WORDS)&&has(HUAWEI_FIN_WORDS)&&has(HUAWEI_STRONG_WORDS)&&!has(CONSUMER_WORDS);
   if(isHuaweiFin)add('huawei_fin');
   // 默认板块为华为金融、但实为消费电子/非金融：移除该默认板块，避免污染频道（空则仅在推荐流可见）
   if(dflt==='huawei_fin'&&!isHuaweiFin){

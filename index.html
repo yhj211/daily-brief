@@ -271,19 +271,26 @@ function viaAllOrigins(gurl){
 async function fetchQuery(def){
   const gurl=gnewsUrl(def.q);
   for(let i=0;i<3;i++){           // rss2json：指数退避重试
-    try{return (await viaRss2Json(gurl)).map(x=>normalize(x,def.dflt));}
+    try{return (await viaRss2Json(gurl)).map(x=>normalize(x,def.dflt)).filter(Boolean);}
     catch(e){await sleep(1200*Math.pow(1.6,i));}
   }
-  try{return (await viaAllOrigins(gurl)).map(x=>normalize(x,def.dflt));}catch(e){return [];}
+  try{return (await viaAllOrigins(gurl)).map(x=>normalize(x,def.dflt)).filter(Boolean);}catch(e){return [];}
 }
 
 /* ============ 归一化 / 去重 ============ */
 function sourceOf(title,fb){const i=title.lastIndexOf(' - ');return i>=0?title.slice(i+3):(fb||'Google News');}
 function cleanTitle(title){const i=title.lastIndexOf(' - ');return i>=0?title.slice(0,i):title;}
 function normTitle(t){return t.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+// 营销/活动/交易挑战类非业务内容过滤（与 Python 侧规则对齐）
+const JUNK_RE=/industry event|webinar|conference|summit|awards?|data center world|magazine|forum|trading challenge|live trading|entry price|giveaway|promo(?:tion)? code|stock picks?/i;
+function isJunk(title){return JUNK_RE.test(title);}
 function jaccard(a,b){const A=new Set(a.split()),B=new Set(b.split());
   if(!A.size||!B.size)return 0;let c=0;for(const x of A)if(B.has(x))c++;return c/(A.size+B.size-c);}
+// 事件强 token：含数字的词 + 长度>=5 的词，用于识别同事件的不同措辞（与 Python 对齐）
+function strongTokens(title){return new Set(normTitle(title).split(' ').filter(w=>w&&(/\d/.test(w)||w.length>=5)));}
+function tokenJaccard(a,b){if(!a.size||!b.size)return 0;let c=0;for(const x of a)if(b.has(x))c++;return c/(a.size+b.size-c);}
 function normalize(x,dflt){
+  if(isJunk(x.title))return null;        // 营销/活动/交易挑战类，排除
   const title=cleanTitle(x.title);
   const date=x.pub?new Date(x.pub):null;
   return {id:x.link,title,link:x.link,date:date?date.getTime():0,
@@ -291,12 +298,12 @@ function normalize(x,dflt){
     tags:tagsOf(title+' '+(x.desc||''))};
 }
 function mergeDedupe(all){
-  const kept=[],titles=[];
+  const kept=[],titles=[],strong=[];
   for(const it of all.sort((a,b)=>b.date-a.date)){
-    const nt=normTitle(it.title);
-    const idx=kept.findIndex((k,i)=>jaccard(nt,titles[i])>=0.62);
+    const nt=normTitle(it.title),st=strongTokens(it.title);
+    const idx=kept.findIndex((k,i)=>jaccard(nt,titles[i])>=0.62||tokenJaccard(st,strong[i])>=0.22);
     if(idx>=0){for(const s of it.sections)if(!kept[idx].sections.includes(s))kept[idx].sections.push(s);continue;}
-    kept.push(it);titles.push(nt);
+    kept.push(it);titles.push(nt);strong.push(st);
   }
   return kept;
 }
